@@ -1,9 +1,10 @@
-import asyncHandler from "../utils/asyncHandler.js"
+import asyncHandler from "express-async-handler"
 import jwt from "jsonwebtoken"
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import {User} from "../models/user.models.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
+
 
 const genTokens=async function(user){
   try{
@@ -33,9 +34,9 @@ const registerUser=asyncHandler(async (req,res)=>{
   //return res
 
   // console.log(req.body)
-  const {fullname,email,username,password}=req.body;
+  const {email,username,password}=req.body;
 //   console.log(res)
-  if([fullname,email,username,password].some((field)=>field.trim()==="")){
+  if([email,username,password].some((field)=>field.trim()==="")){
     throw new ApiError(400,"all fields are compulsory")
   }
 
@@ -48,25 +49,15 @@ const registerUser=asyncHandler(async (req,res)=>{
   }
 
   // console.log("request files ",req.files)
-  const avatarLocalPath=req.files.avatar[0].path;
-  const coverLocalPath=req.files.coverimage[0].path;
+  const avatarLocalPath=req.file?.path;
   // console.log("avatar local path: ,"+avatarLocalPath);
-  if(!avatarLocalPath){
-    throw new ApiError(400,"Avatar file is required");
-  }
+  
 
   //upload on cloudinary
-  const avatar=await uploadOnCloudinary(avatarLocalPath)
-  const coverImage=await uploadOnCloudinary(coverLocalPath)
-  if(!avatar){
-    throw new Error(409,"avatar file required")
-  }
-
+ const avatar=await uploadOnCloudinary(avatarLocalPath)
   //upload on db
   const user= await User.create({
-    fullname:fullname,
-    avatar:avatar.url,
-    coverimage:coverImage.url || "",
+    avatar:avatar?.url || "https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg",
     email,
     password,
     username:username.toLowerCase()
@@ -91,16 +82,14 @@ const loginUser=asyncHandler(async (req,res)=>{
   //if matches , send access and refresh token
   //send through secure cookies
 
-  const {email,username,password}=req.body;
+  const {email,password}=req.body;
   // console.log("credentials received in login ",email," ",password)
-  if(!username && !email){
-    throw new ApiError(400,"username or password required")
+  if(!email){
+    throw new ApiError(400,"email required")
   }
 
   //find user
-  const existsUser=await User.findOne({
-    $or:[{username},{email}]
-  })
+  const existsUser=await User.findOne({email})
   // console.log("existing user in login ",existsUser)
   if(!existsUser) throw new ApiError(404,"User does not exist")
 
@@ -211,24 +200,7 @@ const updateAvatar=asyncHandler(async(req,res)=>{
   return res.status(200).
   json(new ApiResponse(200,user,"avatar updated successfully"))
 })
-const updateCoverImage=asyncHandler(async(req,res)=>{
-  const coverLocalPath=req.files?.path;
-  if(!coverLocalPath){
-    throw new ApiError(409,"cover file required")
-  }
-  const coverImage=await uploadOnCloudinary(coverLocalPath)
-  if(!coverImage){
-    throw new ApiError(500,"error uploading on cloudinary");
-  }
-  const user=await User.findByIdAndUpdate(req.user._id,{
-    coverimage:coverImage.url 
-  },{new:true}).select("-password -refreshToken")
-  if(!user){
-    throw new ApiError(501,"server error")
-  }
-  return res.status(200).
-  json(new ApiResponse(200,user,"Cover Image updated successfully"))
-})
+
 
 const changeCurrentUserPassword=asyncHandler(async(req,res)=>{
   const {oldPassword,newPassword}=req.body;
@@ -273,4 +245,4 @@ const updateDetails=asyncHandler(async(req,res)=>{
   }
   return res.status(200).json(new ApiResponse(200,user,"User updated successfully"))
 })
-export {registerUser,loginUser,logoutUser,refreshAccessToken,updateAvatar,updateCoverImage,changeCurrentUserPassword,findCurrentUser,updateDetails}
+export {registerUser,loginUser,logoutUser,refreshAccessToken,updateAvatar,changeCurrentUserPassword,findCurrentUser,updateDetails}

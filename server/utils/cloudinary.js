@@ -12,9 +12,7 @@ cloudinary.config({
 
 const uploadOnCloudinary = async(url)=>{
     try{
-      console.log("i am in cloudinary");
       if(!url) return null
-      console.log(url);
       const response= await cloudinary.uploader.upload(url,{
         resource_type:'auto',
         folder: 'uploads'
